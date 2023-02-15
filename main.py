@@ -1,58 +1,96 @@
 import sys
 
-#print(sys.argv[1])
 
+class Token:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
 
-def confere_sinal_apos_sinal(string):
-    for i in range(len(string)):
-        if (string[i] == '+' or string[i] == '-') and (string[i+1] == '+' or string[i+1] == '-'):
-            sys.stderr.write("Operador após operador, isso não é permitido")
-            sys.exit(1)
+class Tokenizer:
+    def __init__(self, source, position):
+        self.source = source
+        self.position = position
+        self.next = Token(None, None)
 
-def confere_numero_apos_numero(string):
-    partes = string.split(" ")
-    #print(partes)
-    partes_sem_espacos = []
-    for parte in partes:
-        if parte != "":
-            partes_sem_espacos.append(parte)
-
-    #print(partes_sem_espacos)
-
-    eh_numero = False
-    for i in range(len(partes_sem_espacos)):
-        if partes_sem_espacos[i].isnumeric() and eh_numero:
-            sys.stderr.write("Número após número, isso não é permitido")
-            sys.exit(1)
-        if partes_sem_espacos[i].isnumeric():
-            eh_numero = True
+    def selectNext(self):
+        numero = ""
+        while(len(self.source)!=self.position):
+            if self.source[self.position].isnumeric():
+                numero += self.source[self.position]
+                self.position += 1
+                while(len(self.source)!=self.position):
+                    if self.source[self.position].isnumeric():
+                        numero += self.source[self.position]
+                        self.position += 1
+                    else:
+                        self.next = Token("INT", numero)
+                        return
+                self.next = Token("INT", numero)
+                return
+            elif self.source[self.position] == '+' :
+                self.next = Token("PLUS", 0)
+                self.position += 1
+                return 
+            elif self.source[self.position] == '-' :
+                self.next = Token("MINUS", 0)
+                self.position += 1
+                return 
+            elif self.source[self.position] == " ":
+                self.position += 1
+            else:
+                sys.stderr.write("Você digitou um caracter inválido")
+                sys.exit(1)
         else:
-            eh_numero = False
+            self.next = Token("EOF", 0)
+            return
 
-    return partes_sem_espacos
-    
+class Parser:
+    tokenizer = None
+
+    def parseExpression(tokenizer):
+        resultado = 0
+        if tokenizer.next.type == "INT":
+            resultado = int(tokenizer.next.value)
+            tokenizer.selectNext()
+            while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+                if tokenizer.next.type == "PLUS":
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "INT":
+                        resultado += int(tokenizer.next.value)
+                    else:
+                        sys.stderr.write("Erro de sintaxe: operador depois de operador")
+                        sys.exit(1)
+                if tokenizer.next.type == "MINUS":            
+                    tokenizer.selectNext()
+                    if tokenizer.next.type == "INT":
+                        resultado -= int(tokenizer.next.value)
+                    else:
+                        sys.stderr.write("Erro de sintaxe: operador depois de operador")
+                        sys.exit(1)
+                tokenizer.selectNext()
+                # print(resultado)
+            return resultado
+
+        else:
+            sys.stderr.write("Erro de sintaxe: não pode começar com operador")
+            sys.exit(1)
+
+
  
+    def run(code):
+        Parser.tokenizer = Tokenizer(code, 0)
+        Parser.tokenizer.selectNext()
+        resultado = Parser.parseExpression(Parser.tokenizer)
 
-def soma_sub(string):
-    resultado = 0
-    lista = []
-
-    if string[0] == '+' or string[0] == '-':
-        sys.stderr.write("Operação inválida")
-        sys.exit(1)
-
-    partes_sem_espacos = confere_numero_apos_numero(string)
-
-    
-    junta_string = ""
-    for i in range(len(partes_sem_espacos)):
-        junta_string += partes_sem_espacos[i]
-        #print(junta_string)
-
-    confere_sinal_apos_sinal(junta_string)
+        if Parser.tokenizer.position == len(Parser.tokenizer.source) and Parser.tokenizer.next.type == "EOF":
+            print(resultado)
+            return resultado
+        else:
+            sys.stderr.write("Erro de sintaxe: não consumiu tudo no diagrama sintático")
+            sys.exit(1)
 
 
-    print(eval(junta_string))
+if __name__ == "__main__":
+    Parser.run(sys.argv[1])
 
 
-soma_sub(sys.argv[1])
