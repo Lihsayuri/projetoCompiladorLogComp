@@ -54,6 +54,14 @@ class Tokenizer:
                 self.next = Token("DIV", 0)
                 self.position += 1
                 return
+            elif self.source[self.position] == '(':
+                self.next = Token("OPENPAR", 0)
+                self.position += 1
+                return
+            elif self.source[self.position] == ')':
+                self.next = Token("CLOSEPAR", 0)
+                self.position += 1
+                return
             elif self.source[self.position] == " ":
                 self.position += 1
             else:
@@ -81,38 +89,41 @@ class Parser:
             sys.exit(1)
 
     def parseTerm(tokenizer):
-        resultado = 0
+        resultado = Parser.parseFactor(tokenizer)
         tokenizer.selectNext()
-        if tokenizer.next.type == "INT":
-            resultado = int(tokenizer.next.value)
+        while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV" :
+            if tokenizer.next.type == "MULT":
+                resultado *= Parser.parseFactor(tokenizer)
+            if tokenizer.next.type == "DIV":            
+                resultado //= Parser.parseFactor(tokenizer)
             tokenizer.selectNext()
-            while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV":
-                if tokenizer.next.type == "MULT":
-                    tokenizer.selectNext()
-                    if tokenizer.next.type == "INT":
-                        resultado *= int(tokenizer.next.value)
-                    else:
-                        sys.stderr.write("Erro de sintaxe: operador depois de operador")
-                        sys.exit(1)
-                if tokenizer.next.type == "DIV":            
-                    tokenizer.selectNext()
-                    if tokenizer.next.type == "INT":
-                        if int(tokenizer.next.value) == 0:
-                            sys.stderr.write("Erro de sintaxe: divisão por zero")
-                            sys.exit(1)
-                        resultado //= int(tokenizer.next.value)
-                    else:
-                        sys.stderr.write("Erro de sintaxe: operador depois de operador")
-                        sys.exit(1)
-                tokenizer.selectNext()
-                # print(resultado)
+        if tokenizer.next.type == "INT":
+            sys.stderr.write("Erro de sintaxe: aqui só entra * ou /")
+            sys.exit(1)
+        else:
             return resultado
 
+ 
+    def parseFactor(tokenizer):
+        tokenizer.selectNext()
+        if tokenizer.next.type == "INT":
+            return int(tokenizer.next.value)
+        elif tokenizer.next.type == "MINUS":
+            return -Parser.parseFactor(tokenizer)
+        elif tokenizer.next.type == "PLUS":
+            return Parser.parseFactor(tokenizer)
+        elif tokenizer.next.type == "OPENPAR":
+            resultado = Parser.parseExpression(tokenizer)
+            if tokenizer.next.type == "CLOSEPAR":
+                return resultado
+            else:
+                sys.stderr.write("Erro de sintaxe: falta fechar parênteses")
+                sys.exit(1)
         else:
-            sys.stderr.write("Erro de sintaxe: não pode começar com operador")
+            sys.stderr.write("Erro de sintaxe: aqui só entra número, - ou +")
             sys.exit(1)
 
- 
+
     def run(code):
         code = PrePro.filter(code)
         Parser.tokenizer = Tokenizer(code, 0)

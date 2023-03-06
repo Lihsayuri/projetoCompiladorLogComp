@@ -9,3 +9,7 @@
 ## Diagrama Sintático do roteiro 2:
 
 ![Alt text](diagramaSintatico2.drawio.png?raw=true "Title")
+
+## Diagrama Sintático do roteiro 2:
+
+![Alt text](diagramaSintatico3.drawio.png?raw=true "Title")
