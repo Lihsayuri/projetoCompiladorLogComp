@@ -76,17 +76,17 @@ class Parser:
 
     def parseExpression(tokenizer):
         resultado = Parser.parseTerm(tokenizer)
-        if tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "EOF":
-            while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
-                if tokenizer.next.type == "PLUS":
-                    resultado +=  Parser.parseTerm(tokenizer)
-                if tokenizer.next.type == "MINUS":            
-                    resultado -=  Parser.parseTerm(tokenizer)
-            return resultado
-
+        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
+            if tokenizer.next.type == "PLUS":
+                resultado +=  Parser.parseTerm(tokenizer)
+            if tokenizer.next.type == "MINUS":            
+                resultado -=  Parser.parseTerm(tokenizer)
+ 
         if tokenizer.next.type == "INT":
             sys.stderr.write("Erro de sintaxe")
             sys.exit(1)
+        else:
+            return resultado
 
     def parseTerm(tokenizer):
         resultado = Parser.parseFactor(tokenizer)
