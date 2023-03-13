@@ -11,6 +11,39 @@ class PrePro:
             comment = source[start:end]
             source = source.replace(comment, "")
         return source
+    
+class Node:
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+    def evaluate(self):
+        pass
+
+class UnOp(Node):
+    def evaluate(self):
+        if self.value == "MINUS":
+            return -self.children[0].evaluate()  # faz recursivamente. Vai fazendo os evaluate até chegar no número
+        return self.children[0].evaluate()
+
+class BinOp(Node):
+    def evaluate(self):
+        if self.value == "PLUS":
+            return self.children[0].evaluate() + self.children[1].evaluate()
+        if self.value == "MINUS":
+            return self.children[0].evaluate() - self.children[1].evaluate()
+        if self.value == "MULT":
+            return self.children[0].evaluate() * self.children[1].evaluate()
+        if self.value == "DIV":
+            return self.children[0].evaluate() // self.children[1].evaluate()
+        
+class IntVal(Node):
+    def evaluate(self):
+        return int(self.value)
+    
+class NoOp(Node):
+    def evaluate(self):
+        pass 
+
 
 class Token:
     def __init__(self, type, value):
@@ -75,61 +108,65 @@ class Parser:
     tokenizer = None
 
     def parseExpression(tokenizer):
-        resultado = Parser.parseTerm(tokenizer)
+        node = Parser.parseTerm(tokenizer)
         while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS":
             if tokenizer.next.type == "PLUS":
-                resultado +=  Parser.parseTerm(tokenizer)
-            if tokenizer.next.type == "MINUS":            
-                resultado -=  Parser.parseTerm(tokenizer)
+                node = BinOp(tokenizer.next.type, [node, Parser.parseTerm(tokenizer)])
+            if tokenizer.next.type == "MINUS":    
+                node = BinOp(tokenizer.next.type, [node, Parser.parseTerm(tokenizer)])
  
         if tokenizer.next.type == "INT":
-            sys.stderr.write("Erro de sintaxe")
+            sys.stderr.write(f"Erro de sintaxe: INT não esperado. Caracter atual: {tokenizer.next.value}")
             sys.exit(1)
         else:
-            return resultado
+            return node
 
     def parseTerm(tokenizer):
-        resultado = Parser.parseFactor(tokenizer)
+        node = Parser.parseFactor(tokenizer)
         tokenizer.selectNext()
         while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV" :
             if tokenizer.next.type == "MULT":
-                resultado *= Parser.parseFactor(tokenizer)
-            if tokenizer.next.type == "DIV":            
-                resultado //= Parser.parseFactor(tokenizer)
+                node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
+            if tokenizer.next.type == "DIV":    
+                node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
             tokenizer.selectNext()
         if tokenizer.next.type == "INT":
-            sys.stderr.write("Erro de sintaxe: aqui só entra * ou /")
+            sys.stderr.write(f"Erro de sintaxe: INT não esperado. Caracter atual: {tokenizer.next.value}")
             sys.exit(1)
         else:
-            return resultado
+            return node
 
  
     def parseFactor(tokenizer):
         tokenizer.selectNext()
         if tokenizer.next.type == "INT":
-            return int(tokenizer.next.value)
+            node = IntVal(tokenizer.next.value, [])
+            return node
         elif tokenizer.next.type == "MINUS":
-            return -Parser.parseFactor(tokenizer)
+            node = UnOp(tokenizer.next.type, [Parser.parseFactor(tokenizer)])
+            return node
         elif tokenizer.next.type == "PLUS":
-            return Parser.parseFactor(tokenizer)
+            node = UnOp(tokenizer.next.type, [Parser.parseFactor(tokenizer)])
+            return node
         elif tokenizer.next.type == "OPENPAR":
-            resultado = Parser.parseExpression(tokenizer)
+            node = Parser.parseExpression(tokenizer)
             if tokenizer.next.type == "CLOSEPAR":
-                return resultado
+                return node
             else:
-                sys.stderr.write("Erro de sintaxe: falta fechar parênteses")
+                sys.stderr.write(f"Erro de sintaxe: falta fechar parênteses.  Caracter atual: {tokenizer.next.value}")
                 sys.exit(1)
         else:
-            sys.stderr.write("Erro de sintaxe: aqui só entra número, - ou +")
+            sys.stderr.write(f"Erro de sintaxe: aqui só entra número, - ou +.  Caracter atual: {tokenizer.next.value}")
             sys.exit(1)
 
 
     def run(code):
         code = PrePro.filter(code)
         Parser.tokenizer = Tokenizer(code, 0)
-        resultado = Parser.parseExpression(Parser.tokenizer)
+        root = Parser.parseExpression(Parser.tokenizer)
 
         if Parser.tokenizer.position == len(Parser.tokenizer.source) and Parser.tokenizer.next.type == "EOF":
+            resultado =  root.evaluate()
             print(resultado)
             return resultado
         else:
@@ -138,6 +175,9 @@ class Parser:
 
 
 if __name__ == "__main__":
-    Parser.run(sys.argv[1])
+    # argv1 vai ser nome do arquivo e nao travar a extensão .
+    with open(sys.argv[1], "r") as file:
+        code = file.read()
+    Parser.run(code)
 
 
