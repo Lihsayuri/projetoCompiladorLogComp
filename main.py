@@ -61,7 +61,8 @@ class SymbolTable:
     table = {}
 
     def getter(variable):
-        return SymbolTable.table.get(variable)
+        # return SymbolTable.table.get(variable)
+        return SymbolTable.table[variable]
     def setter(variable, value):
         SymbolTable.table[variable] = value
 
