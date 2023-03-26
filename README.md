@@ -31,6 +31,6 @@
 
 - STATEMENT = ("\n" | IDENTIFICADOR, "=" , EXPRESSION, "\n" | print, "(", EXPRESSION, ")", "\n")
 
-- IDENTIFICADOR = (letter| "_") {letter | number | "_"}
+- IDENTIFICADOR = (letter| " _ ") {letter | number | " _ "}
 
 <img src="regras_de_producao.png" width="400" height="300">
