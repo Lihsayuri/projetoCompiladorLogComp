@@ -14,6 +14,10 @@
 
 ![Alt text](diagramaSintatico3.drawio.png?raw=true "Title")
 
+## Diagrama Sintático do roteiro 5:
+
+![Alt text](diagramaSintatico4.drawio.png?raw=true "Title")
+
 
 ### EBNF:
 
