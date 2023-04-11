@@ -260,7 +260,7 @@ class Parser:
                 node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
             if tokenizer.next.type == "AND":
                 node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
-            # tokenizer.selectNext()
+            tokenizer.selectNext()
         if tokenizer.next.type == "INT":
             sys.stderr.write(f"Erro de sintaxe: INT não esperado.Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
             sys.exit(1)

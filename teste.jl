@@ -1,6 +1,6 @@
 
-a = 0
-while a < 10
-    println(a)
-    a = a + 1
-end
+println(1+1)
+println(1-1)
+println(1*1)
+println(1/1)
+println(---1)
