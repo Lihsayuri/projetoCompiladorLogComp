@@ -1,3 +1,6 @@
-x1 = 3
-x1 = x1 +1
-println(X1)
+
+a = 0
+while a < 10
+    println(a)
+    a = a + 1
+end
