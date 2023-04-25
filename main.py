@@ -31,13 +31,10 @@ class BinOp(Node):
 
     def evaluate(self):
         if self.value == "CONCAT":
-            if self.children[0].evaluate()[0] == "String" and self.children[1].evaluate()[0] == "String":
-                return ("String", self.children[0].evaluate()[1] + self.children[1].evaluate()[1])
-            else:
-                sys.stderr.write("Erro de tipos: operação de concatenação entre tipos incompatíveis")
+            return ("String", str(self.children[0].evaluate()[1]) + str(self.children[1].evaluate()[1]))
         if self.value == "PLUS":
             if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
-                return ("Int", self.children[0].evaluate()[1] + self.children[1].evaluate()[1])
+                return ("Int", (self.children[0].evaluate()[1] + self.children[1].evaluate()[1]))
             else:
                 sys.stderr.write("Erro de tipos: operação de soma entre tipos incompatíveis")
         if self.value == "MINUS":
@@ -56,20 +53,20 @@ class BinOp(Node):
             else:
                 sys.stderr.write("Erro de tipos: operação de divisão entre tipos incompatíveis")
         if self.value == "EQUAL_EQUAL":
-            if self.children[0].evaluate()[0] == self.children[1].evaluate()[0]:
-                return ("Int", self.children[0].evaluate()[1] == self.children[1].evaluate()[1])
+            if self.children[0].evaluate()[1] == self.children[1].evaluate()[1]:
+                return ("Int", 1)
             else:
-                sys.stderr.write("Erro de tipos: operação de igualdade entre tipos incompatíveis")
-        if self.value == "GREAT":
-            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
-                return ("Int", self.children[0].evaluate()[1] > self.children[1].evaluate()[1])
+                return ("Int", 0)
+        if self.value == "GREATER":
+            if self.children[0].evaluate()[1] > self.children[1].evaluate()[1]:
+                return ("Int", 1)
             else:
-                sys.stderr.write("Erro de tipos: operação de maior que entre tipos incompatíveis")
+                return ("Int", 0)
         if self.value == "LESS":
-            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
-                return ("Int", self.children[0].evaluate()[1] < self.children[1].evaluate()[1])
+            if self.children[0].evaluate()[1] < self.children[1].evaluate()[1]:
+                return ("Int", 1)
             else:
-                sys.stderr.write("Erro de tipos: operação de menor que entre tipos incompatíveis")
+                return ("Int", 0)
         if self.value == "OR":
             if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
                 valor1 = 0
@@ -107,8 +104,8 @@ class NoOp(Node):
 
 class Assign(Node):
     def evaluate(self):
-        tipo = self.children[1].evaluate()[0]
-        SymbolTable.setter(tipo, self.children[0].value, self.children[1].evaluate())
+        # print("tipooo ", self.children[0].evaluate()[0])
+        SymbolTable.setter(self.children[0].value, self.children[1].evaluate())
 
 class VarDec(Node):
     def evaluate(self):
@@ -119,9 +116,9 @@ class VarDec(Node):
                 SymbolTable.create(self.value, self.children[0].value, "")
         else:
             if self.value == "Int":
-                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate())
+                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
             elif self.value == "String":
-                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate())
+                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
 
 class Print(Node):
     def evaluate(self):
@@ -139,12 +136,12 @@ class Block(Node):
 
 class While(Node):
     def evaluate(self):
-        while self.children[0].evaluate():
+        while self.children[0].evaluate()[1]:
             self.children[1].evaluate()
 
 class If(Node):
     def evaluate(self):
-        if self.children[0].evaluate():
+        if self.children[0].evaluate()[1]:
             self.children[1].evaluate()
         else:
             if len(self.children) == 3:
@@ -152,20 +149,21 @@ class If(Node):
 
 class Readln(Node):
     def evaluate(self):
-        return int(input())  
+        return ("Int", int(input()))  
 
 class SymbolTable:
     table = {}
 
     def create(type, variable, value):
-        SymbolTable.table[variable] = (type, value)
+        if variable not in SymbolTable.table:
+            SymbolTable.table[variable] = (type, value)
 
     def getter(variable):
-        # return SymbolTable.table.get(variable)
         return SymbolTable.table[variable]
-    def setter(type, variable, value):
-        if SymbolTable.table[variable][0] == type:
-            SymbolTable.table[variable] = (type, value)
+    
+    def setter( variable, value):
+        if SymbolTable.table[variable][0] == value[0]:
+            SymbolTable.table[variable] =  value
         else:
             sys.stderr.write("Erro de tipos: atribuição de valor incompatível com o tipo da variável")
 
@@ -324,12 +322,14 @@ class Parser:
 
     def parseRelExp(tokenizer):
         node = Parser.parseExpression(tokenizer)
-        while tokenizer.next.type == "GREATER" or tokenizer.next.type == "LESS" or tokenizer.next.type == "EQUAL_EQUAL":
+        while tokenizer.next.type == "GREATER" or tokenizer.next.type == "LESS" or tokenizer.next.type == "EQUAL_EQUAL" or tokenizer.next.type == "CONCAT":
             if tokenizer.next.type == "EQUAL_EQUAL":
                 node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
             if tokenizer.next.type == "GREATER":
                 node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
             if tokenizer.next.type == "LESS":    
+                node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
+            if tokenizer.next.type == "CONCAT":
                 node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
  
         if tokenizer.next.type == "INT":
@@ -439,7 +439,7 @@ class Parser:
                 node_expression = Parser.parseRelExp(Parser.tokenizer)
                 if Parser.tokenizer.next.type != "NEWLINE":
                     sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
-                return Assign(node_identifier, node_expression)
+                return Assign(None, [node_identifier, node_expression])
             elif Parser.tokenizer.next.type == "DOUBLECOLON":
                 Parser.tokenizer.selectNext()
                 if Parser.tokenizer.next.type == "TYPE":
@@ -450,9 +450,9 @@ class Parser:
                         if Parser.tokenizer.next.type != "NEWLINE":
                             sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
                         return VarDec(tipo_da_var, [node_identifier, node_expression])
-                    else:
-                        sys.stderr.write("Erro de sintaxe: falta o sinal de igual no VARDEC. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                        sys.exit(1)
+                    elif Parser.tokenizer.next.type == "NEWLINE":
+                        return VarDec(tipo_da_var, [node_identifier])
+                    sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
                 else:
                     sys.stderr.write("Erro de sintaxe: falta o tipo no VARDEC. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
                     sys.exit(1)
