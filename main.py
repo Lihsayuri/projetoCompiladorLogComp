@@ -157,6 +157,8 @@ class SymbolTable:
     def create(type, variable, value):
         if variable not in SymbolTable.table:
             SymbolTable.table[variable] = (type, value)
+        else:
+            sys.stderr.write("Erro: variável já declarada")
 
     def getter(variable):
         return SymbolTable.table[variable]
