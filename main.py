@@ -425,7 +425,7 @@ class Parser:
     def parseBlockIFWhile(tokenizer):
         node_Block = Block("", [])
         tokenizer.selectNext()
-        while tokenizer.next.type != "END" and tokenizer.next.type != "ELSE":
+        while tokenizer.next.type != "END" and tokenizer.next.type != "ELSE"  and tokenizer.next.type != "EOF":
             node_Block.children.append(Parser.parseStatement(tokenizer))
             tokenizer.selectNext()
         return node_Block
