@@ -2,48 +2,20 @@ import sys
 import re
 
 lista_palavras_reservadas = ["println", "readline", "if", "else", "while", "end", "Int", "String"]   # na PI vai pedir versão 2.1
-destination_file = ""
 class PrePro:
     def filter(source):
         source = re.sub(r"#.*\n", "\n", source)  # remove comentários
         source = re.sub(r"#.*", "", source)  # remove linhas em branco
         return source
-
-
-class Write:
-    def write_footer():
-        with open("footer.asm", "r") as input_file:
-            with open(f"{destination_file}.asm", "a") as output_file:
-                output_file.write(input_file.read())
-            
-    def write_header():
-        with open("header.asm", "r") as input_file:
-            with open(f"{destination_file}.asm", "w") as output_file:
-                output_file.write(input_file.read())
-
-    def write_code(code):
-        with open(f'{destination_file}.asm', "a") as file:
-            file.write(code)
     
 class Node:
-    i = 0
-
     def __init__(self, value, children):
         self.value = value
         self.children = children
-
-    def newId():
-        Node.i += 1
-        return Node.i
-    
     def evaluate(self):
         pass
 
 class UnOp(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
         if self.value == "MINUS":
             if self.children[0].evaluate()[0] == "Int":
@@ -55,248 +27,141 @@ class UnOp(Node):
             if self.children[0].evaluate()[0] == "Int":
                 return ("Int", self.children[0].evaluate()[1])
 
-
 class BinOp(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
+
     def evaluate(self):
-        filho_esquerda = self.children[0].evaluate()
-        Write.write_code("PUSH EBX\n")
-        filho_direita = self.children[1].evaluate()
         if self.value == "CONCAT":
-            return ("String", str(filho_esquerda[1]) + str(filho_direita[1]))
+            return ("String", str(self.children[0].evaluate()[1]) + str(self.children[1].evaluate()[1]))
         if self.value == "PLUS":
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
-                Write.write_code("POP EAX\n")
-                Write.write_code("ADD EAX, EBX\n")
-                Write.write_code("MOV EBX, EAX\n")
-                return ("Int", (filho_esquerda[1] + filho_direita[1]))
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
+                return ("Int", (self.children[0].evaluate()[1] + self.children[1].evaluate()[1]))
             else:
                 sys.stderr.write("Erro de tipos: operação de soma entre tipos incompatíveis")
         if self.value == "MINUS":
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
-                Write.write_code("POP EAX\n")
-                Write.write_code("SUB EAX, EBX\n")
-                Write.write_code("MOV EBX, EAX\n")
-                return ("Int", filho_esquerda[1] - filho_direita[1])
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
+                return ("Int", self.children[0].evaluate()[1] - self.children[1].evaluate()[1])
             else:
                 sys.stderr.write("Erro de tipos: operação de subtração entre tipos incompatíveis")
         if self.value == "MULT":
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
-                Write.write_code("POP EAX\n")
-                Write.write_code("IMUL EAX, EBX\n")
-                Write.write_code("MOV EBX, EAX\n")
-                return ("Int", filho_esquerda[1] * filho_direita[1])
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
+                return ("Int", self.children[0].evaluate()[1] * self.children[1].evaluate()[1])
             else:
                 sys.stderr.write("Erro de tipos: operação de multiplicação entre tipos incompatíveis")
         if self.value == "DIV":
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
-                Write.write_code("POP EAX\n")
-                Write.write_code("IDIV EAX, EBX\n")
-                Write.write_code("MOV EBX, EAX\n")
-                return ("Int", filho_esquerda[1] // filho_direita[1])
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
+                return ("Int", self.children[0].evaluate()[1] // self.children[1].evaluate()[1])
             else:
                 sys.stderr.write("Erro de tipos: operação de divisão entre tipos incompatíveis")
         if self.value == "EQUAL_EQUAL":
-            Write.write_code("POP EAX\n")
-            Write.write_code("CMP EAX, EBX\n")
-            Write.write_code("call binop_je\n")
-            if filho_esquerda[1] == filho_direita[1]:
+            if self.children[0].evaluate()[1] == self.children[1].evaluate()[1]:
                 return ("Int", 1)
             else:
                 return ("Int", 0)
         if self.value == "GREATER":
-            Write.write_code("POP EAX\n")
-            Write.write_code("CMP EAX, EBX\n")
-            Write.write_code("call binop_jg\n")
-            if filho_esquerda[1] > filho_direita[1]:
+            if self.children[0].evaluate()[1] > self.children[1].evaluate()[1]:
                 return ("Int", 1)
             else:
                 return ("Int", 0)
         if self.value == "LESS":
-            Write.write_code("POP EAX\n")
-            Write.write_code("CMP EAX, EBX\n")
-            Write.write_code("call binop_jl\n")
-            if filho_esquerda[1] < filho_direita[1]:
+            if self.children[0].evaluate()[1] < self.children[1].evaluate()[1]:
                 return ("Int", 1)
             else:
                 return ("Int", 0)
         if self.value == "OR":
-            Write.write_code("POP EAX\n")
-            Write.write_code("OR EAX, EBX\n")
-            Write.write_code("MOV EBX, EAX\n")
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
                 valor1 = 0
                 valor2 = 0
-                if filho_esquerda[1] >= 1:
+                if self.children[0].evaluate()[1] >= 1:
                     valor1 = 1
-                if filho_direita[1] >= 1:
+                if self.children[1].evaluate()[1] >= 1:
                     valor2 = 1
                 return ("Int", valor1 or valor2)
             else:
                 sys.stderr.write("Erro de tipos: operação de ou entre tipos incompatíveis")
         if self.value == "AND":
-            Write.write_code("POP EAX\n")
-            Write.write_code("AND EAX, EBX\n")
-            Write.write_code("MOV EBX, EAX\n")
-            if filho_esquerda[0] == "Int" and filho_direita[0] == "Int":
+            if self.children[0].evaluate()[0] == "Int" and self.children[1].evaluate()[0] == "Int":
                 valor1 = 0
                 valor2 = 0
-                if filho_esquerda[1] >= 1:
+                if self.children[0].evaluate()[1] >= 1:
                     valor1 = 1
-                if filho_direita[1] >= 1:
+                if self.children[1].evaluate()[1] >= 1:
                     valor2 = 1
                 return ("Int", valor1 and valor2)
             else:
                 sys.stderr.write("Erro de tipos: operação de e entre tipos incompatíveis")
-
-
-
+        
 class IntVal(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        Write.write_code("MOV EBX, " + str(self.value)+"\n")
         return ("Int", int(self.value))
     
 class StringVal(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
         return ("String", self.value)
     
 class NoOp(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
         pass 
 
 class Assign(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        filho_da_direita = self.children[1].evaluate()
-        index = list(SymbolTable.table.keys()).index(self.children[0].value)
-        Write.write_code("MOV [EBP - " + str(index*4 + 4) + "], EBX\n")
-        SymbolTable.setter(self.children[0].value, filho_da_direita)
+        # print("tipooo ", self.children[0].evaluate()[0])
+        SymbolTable.setter(self.children[0].value, self.children[1].evaluate())
 
 class VarDec(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
         if len(self.children) == 1:
             if self.value == "Int":
-                Write.write_code("PUSH DWORD 0\n")
                 SymbolTable.create(self.value, self.children[0].value, 0)
             elif self.value == "String":
                 SymbolTable.create(self.value, self.children[0].value, "")
         else:
             if self.value == "Int":
-                Write.write_code("PUSH DWORD 0\n")
-                # Write.write_code("MOV [EBP - " + str(SymbolTable.offset) + "]," + str(self.value) + "\n")
                 SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
             elif self.value == "String":
                 SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
 
 class Print(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        Write.write_code("PUSH EBX\n")
-        Write.write_code("CALL print\n")
-        Write.write_code("POP EBX\n")
+        print(self.children[0].evaluate()[1])
 
 class Identifier(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        index = list(SymbolTable.table.keys()).index(self.value)
-        Write.write_code("MOV EBX, [EBP - " + str(index*4 + 4) + "]" + "\n")
         return SymbolTable.getter(self.value)
     
     
 class Block(Node):
-    def __init__(self, value, children):
-        Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
         for child in self.children:
             child.evaluate()
 
 class While(Node):
-    def __init__(self, value, children):
-        self.id = Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        Write.write_code("LOOP_" + str(self.id) + ":\n")
-        filho_esquerdo = self.children[0].evaluate()[1]
-        Write.write_code("CMP EBX, False" + "\n")
-        Write.write_code("JE EXIT_" + str(self.id) + "\n")
-        # while filho_esquerdo:
-        #     self.children[1].evaluate()
-        filho_direito = self.children[1].evaluate()
-        Write.write_code("JMP LOOP_" + str(self.id) + "\n")
-        Write.write_code("EXIT_" + str(self.id) + ":\n")
+        while self.children[0].evaluate()[1]:
+            self.children[1].evaluate()
 
 class If(Node):
-    def __init__(self, value, children):
-        self.id = Node.newId()
-        self.value = value
-        self.children = children
     def evaluate(self):
-        filho_esquerdo = self.children[0].evaluate()
-        Write.write_code("CMP EBX, False" + "\n")
-        Write.write_code("JE ELSE_" + str(self.id) + "\n")
-        if filho_esquerdo[1]:
+        if self.children[0].evaluate()[1]:
             self.children[1].evaluate()
-            Write.write_code("JMP EXIT_" + str(self.id) + "\n")
         else:
-            Write.write_code("ELSE_" + str(self.id) + "\n")
             if len(self.children) == 3:
                 self.children[2].evaluate()
-        Write.write_code("EXIT_" + str(self.id) + ":\n")
 
 class Readln(Node):
-    Node.newId()
     def evaluate(self):
         return ("Int", int(input()))  
 
 class SymbolTable:
     table = {}
-    offset = 4
 
     def create(type, variable, value):
         if variable not in SymbolTable.table:
             SymbolTable.table[variable] = (type, value)
-            SymbolTable.offset += 4
         else:
             sys.stderr.write("Erro: variável já declarada")
 
     def getter(variable):
-        if variable in SymbolTable.table:
-            return SymbolTable.table[variable]
-        else:
-            raise ValueError("Variable not found in SymbolTable")
-        # pegue o indice do dicionario em que a variavel esta
-
+        return SymbolTable.table[variable]
     
     def setter( variable, value):
         if SymbolTable.table[variable][0] == value[0]:
@@ -667,12 +532,10 @@ class Parser:
     def run(code):
         code = PrePro.filter(code)
         Parser.tokenizer = Tokenizer(code, 0)
-        Write.write_header()
         root = Parser.parseBlock(Parser.tokenizer)
 
         if Parser.tokenizer.position == len(Parser.tokenizer.source) and Parser.tokenizer.next.type == "EOF":
             resultado =  root.evaluate()
-            Write.write_footer()
             return resultado
         else:
             sys.stderr.write("Erro de sintaxe: não consumiu tudo no diagrama sintático")
@@ -681,10 +544,7 @@ class Parser:
 
 if __name__ == "__main__":
     # argv1 vai ser nome do arquivo e nao travar a extensão .
-    with open(sys.argv[1], "r") as file: 
-        destination_file = sys.argv[1].split(".jl")[0]
+    with open(sys.argv[1], "r") as file:
         code = file.read()
     
     Parser.run(code)
-
-
