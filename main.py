@@ -270,7 +270,7 @@ class If(Node):
         # if filho_esquerdo[1]:
         Write.write_code("JMP END_IF_" + str(self.id) + "\n")
         # else:
-        Write.write_code("ELSE_" + str(self.id) + "\n")
+        Write.write_code("ELSE_" + str(self.id) + ":\n")
         if len(self.children) == 3:
             self.children[2].evaluate()
         Write.write_code("END_IF_" + str(self.id) + ":\n")
