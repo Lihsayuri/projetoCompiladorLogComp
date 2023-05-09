@@ -262,17 +262,18 @@ class If(Node):
         self.value = value
         self.children = children
     def evaluate(self):
+        Write.write_code("IF_" + str(self.id) + ":\n")
         filho_esquerdo = self.children[0].evaluate()
         Write.write_code("CMP EBX, False" + "\n")
         Write.write_code("JE ELSE_" + str(self.id) + "\n")
-        if filho_esquerdo[1]:
-            self.children[1].evaluate()
-            Write.write_code("JMP EXIT_IF_" + str(self.id) + "\n")
-        else:
-            Write.write_code("ELSE_" + str(self.id) + "\n")
-            if len(self.children) == 3:
-                self.children[2].evaluate()
-        Write.write_code("EXIT_IF_" + str(self.id) + ":\n")
+        self.children[1].evaluate()
+        # if filho_esquerdo[1]:
+        Write.write_code("JMP END_IF_" + str(self.id) + "\n")
+        # else:
+        Write.write_code("ELSE_" + str(self.id) + "\n")
+        if len(self.children) == 3:
+            self.children[2].evaluate()
+        Write.write_code("END_IF_" + str(self.id) + ":\n")
 
 class Readln(Node):
     Node.newId()
