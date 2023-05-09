@@ -216,9 +216,11 @@ class Print(Node):
         self.value = value
         self.children = children
     def evaluate(self):
+        filho_esquerda = self.children[0].evaluate()
         Write.write_code("PUSH EBX\n")
         Write.write_code("CALL print\n")
         Write.write_code("POP EBX\n")
+        print(filho_esquerda[1])
 
 class Identifier(Node):
     def __init__(self, value, children):

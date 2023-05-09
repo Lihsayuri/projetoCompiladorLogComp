@@ -78,7 +78,10 @@ binop_exit:
 _start:
 
   PUSH EBP ; guarda o base pointer
-  MOV EBP, ESP ; estabelece um novo base pointerPUSH DWORD 0
+  MOV EBP, ESP ; estabelece um novo base pointer
+
+  ; codigo gerado pelo compilador
+  PUSH DWORD 0
 PUSH DWORD 0
 PUSH DWORD 0
 MOV EBX, 5
@@ -101,6 +104,21 @@ CMP EAX, EBX
 call binop_jl
 CMP EBX, False
 JE EXIT_LOOP_41
+IF_30:
+MOV EBX, [EBP - 4]
+PUSH EBX
+MOV EBX, 4
+POP EAX
+CMP EAX, EBX
+call binop_je
+CMP EBX, False
+JE ELSE_30
+PUSH EBX
+CALL print
+POP EBX
+JMP END_IF_30
+ELSE_30:
+END_IF_30:
 MOV EBX, [EBP - 12]
 PUSH EBX
 MOV EBX, [EBP - 4]
@@ -115,23 +133,9 @@ POP EAX
 ADD EAX, EBX
 MOV EBX, EAX
 MOV [EBP - 4], EBX
-IF_40:
-MOV EBX, [EBP - 4]
-PUSH EBX
-MOV EBX, 4
-POP EAX
-CMP EAX, EBX
-call binop_je
-CMP EBX, False
-JE ELSE_40
-PUSH EBX
-CALL print
-POP EBX
-JMP END_IF_40
-ELSE_40
-END_IF_40:
 JMP LOOP_41
 EXIT_LOOP_41:
+MOV EBX, [EBP - 12]
 PUSH EBX
 CALL print
 POP EBX
