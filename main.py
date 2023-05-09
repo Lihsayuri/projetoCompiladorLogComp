@@ -249,12 +249,12 @@ class While(Node):
         Write.write_code("LOOP_" + str(self.id) + ":\n")
         filho_esquerdo = self.children[0].evaluate()[1]
         Write.write_code("CMP EBX, False" + "\n")
-        Write.write_code("JE EXIT_" + str(self.id) + "\n")
+        Write.write_code("JE EXIT_LOOP_" + str(self.id) + "\n")
         # while filho_esquerdo:
         #     self.children[1].evaluate()
         filho_direito = self.children[1].evaluate()
         Write.write_code("JMP LOOP_" + str(self.id) + "\n")
-        Write.write_code("EXIT_" + str(self.id) + ":\n")
+        Write.write_code("EXIT_LOOP_" + str(self.id) + ":\n")
 
 class If(Node):
     def __init__(self, value, children):
@@ -267,12 +267,12 @@ class If(Node):
         Write.write_code("JE ELSE_" + str(self.id) + "\n")
         if filho_esquerdo[1]:
             self.children[1].evaluate()
-            Write.write_code("JMP EXIT_" + str(self.id) + "\n")
+            Write.write_code("JMP EXIT_IF_" + str(self.id) + "\n")
         else:
             Write.write_code("ELSE_" + str(self.id) + "\n")
             if len(self.children) == 3:
                 self.children[2].evaluate()
-        Write.write_code("EXIT_" + str(self.id) + ":\n")
+        Write.write_code("EXIT_IF_" + str(self.id) + ":\n")
 
 class Readln(Node):
     Node.newId()
