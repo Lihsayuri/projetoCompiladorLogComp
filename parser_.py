@@ -78,14 +78,17 @@ class Parser:
             # print(tokenizer.peek().type)
             # print(tokenizer.peek().value)
             if tokenizer.peek().type == "OPENPAR":
-                node_call = FuncCall(node.value, [])
                 tokenizer.selectNext()
-                if tokenizer.next.type != "CLOSEPAR":
+                node_call = FuncCall(node.value, [])
+                if tokenizer.peek().type != "CLOSEPAR":
                     while tokenizer.next.type != "CLOSEPAR":
                         node_rel_exp = Parser.parseRelExp(tokenizer)
                         node_call.children.append(node_rel_exp)
                         if tokenizer.next.type != "COMMA" and tokenizer.next.type != "CLOSEPAR":
                             sys.stderr.write("Erro de sintaxe: falta vírgula no funcCall. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                    return node_call
+                else:
+                    tokenizer.selectNext()
                     return node_call
 
             else:
@@ -150,7 +153,7 @@ class Parser:
                 node_expression = Parser.parseRelExp(Parser.tokenizer)   ### PAREIIII AQUI
                 # print("Settei a variável: ", node_identifier.value, " com o valor: ", node_expression.children)
                 if Parser.tokenizer.next.type != "NEWLINE":
-                    sys.stderr.write("AQUIIErro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
+                    sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
                 return Assign(None, [node_identifier, node_expression])
             elif Parser.tokenizer.next.type == "DOUBLECOLON":
                 Parser.tokenizer.selectNext()
@@ -318,32 +321,36 @@ class Parser:
                                     else:
                                         sys.stderr.write(" Erro de sintaxe: falta o :: no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
                                         sys.exit(1)
-                elif Parser.tokenizer.next.type == "CLOSEPAR":
-                    Parser.tokenizer.selectNext()
-                    if Parser.tokenizer.next.type == "DOUBLECOLON":
+                    elif Parser.tokenizer.next.type == "CLOSEPAR":
                         Parser.tokenizer.selectNext()
-                        if Parser.tokenizer.next.type == "TYPE":
-                            tipo_da_funcao = Parser.tokenizer.next.value
+                        if Parser.tokenizer.next.type == "DOUBLECOLON":
                             Parser.tokenizer.selectNext()
-                            if Parser.tokenizer.next.type == "NEWLINE":
-                                node_block_else = Parser.parseBlockIFWhile(Parser.tokenizer)
-                                if Parser.tokenizer.next.type != "END":
-                                    sys.stderr.write("Erro de sintaxe: falta end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                                    sys.exit(1)
+                            if Parser.tokenizer.next.type == "TYPE":
+                                tipo_da_funcao = Parser.tokenizer.next.value
                                 Parser.tokenizer.selectNext()
-                                if Parser.tokenizer.next.type != "NEWLINE":
-                                    sys.stderr.write("Erro de sintaxe: não terminou a linha no end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                                if Parser.tokenizer.next.type == "NEWLINE":
+                                    node_Block = Block("", [])
+                                    tokenizer.selectNext()
+                                    while tokenizer.next.type != "END" and tokenizer.next.type != "EOF":
+                                        node_Block.children.append(Parser.parseStatement(tokenizer))
+                                        tokenizer.selectNext()
+                                    if Parser.tokenizer.next.type != "END":
+                                        sys.stderr.write("Erro de sintaxe: falta end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                                        sys.exit(1)
+                                    Parser.tokenizer.selectNext()
+                                    if Parser.tokenizer.next.type != "NEWLINE":
+                                        sys.stderr.write("Erro de sintaxe: não terminou a linha no end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                                        sys.exit(1)
+                                    return FuncDec(tipo_da_funcao, [node_identifier_func, [], node_Block])
+                                else:
+                                    sys.stderr.write("Erro de sintaxe: não terminou a linha no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
                                     sys.exit(1)
-                                return FuncDec(tipo_da_funcao, [node_identifier, node_block])
                             else:
-                                sys.stderr.write("Erro de sintaxe: não terminou a linha no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                                sys.stderr.write("Erro de sintaxe: falta o tipo no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
                                 sys.exit(1)
                         else:
-                            sys.stderr.write("Erro de sintaxe: falta o tipo no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
+                            sys.stderr.write("Erro de sintaxe: falta o :: no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
                             sys.exit(1)
-                    else:
-                        sys.stderr.write("Erro de sintaxe: falta o :: no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                        sys.exit(1)
                         
             else:
                 sys.stderr.write("Erro de sintaxe: falta o identificador no function. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")

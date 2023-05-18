@@ -140,7 +140,7 @@ class FuncCall(Node):
         filhos_call = self.children #filhos do funcCall
         # print("filhos call: ", filhos_call)
         # print(funcTable.table)
-
+        # print("args: ", *args)
         if len(*args) != len(filhos_call):
             sys.stderr.write(f"Erro de sintaxe: número de argumentos não corresponde ao número de parâmetros da função '{self.value}'")
 

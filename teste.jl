@@ -1,11 +1,13 @@
-function soma(x::Int, y::Int)::Int
-    a:: Int
-    a = x + y
-    return a
+
+function Main()::Int
+
+  # Single 
+  x_1::Int
+  x_1 = 1
+  println(x_1)
+
+  return 1
+
 end
-a::Int 
-b::Int
-a = 3
-b = soma(a, 4)
-println(b)
-println(a)
+
+println(Main())
