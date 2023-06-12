@@ -74,3 +74,75 @@ binop_true:
   MOV EBX, True
 binop_exit:
   RET
+
+soma:
+PUSH EBP
+MOV EBP, ESP
+PUSH DWORD 0
+MOV EBX, [EBP+12]
+PUSH EBX
+MOV EBX, [EBP+8]
+POP EAX
+ADD EAX, EBX
+MOV EBX, EAX
+MOV [EBP -4], EBX
+MOV EBX, [EBP-4]
+MOV ESP, EBP
+POP EBP
+RET
+multiplicacao:
+PUSH EBP
+MOV EBP, ESP
+PUSH DWORD 0
+MOV EBX, [EBP+12]
+PUSH EBX
+MOV EBX, [EBP+8]
+POP EAX
+IMUL EAX, EBX
+MOV EBX, EAX
+MOV [EBP -4], EBX
+MOV EBX, [EBP-4]
+MOV ESP, EBP
+POP EBP
+RET
+
+_start:
+
+  PUSH EBP ; guarda o base pointer
+  MOV EBP, ESP ; estabelece um novo base pointer
+  
+PUSH DWORD 0
+PUSH DWORD 0
+PUSH DWORD 0
+MOV EBX, 3
+MOV [EBP -4], EBX
+MOV EBX, [EBP-4]
+PUSH EBX
+MOV EBX, 4
+PUSH EBX
+CALL soma
+POP EDX
+POP EDX
+MOV [EBP -8], EBX
+MOV EBX, [EBP-4]
+PUSH EBX
+MOV EBX, [EBP-8]
+PUSH EBX
+CALL multiplicacao
+POP EDX
+POP EDX
+MOV [EBP -12], EBX
+MOV EBX, [EBP-8]
+PUSH EBX
+CALL print
+POP EBX
+MOV EBX, [EBP-12]
+PUSH EBX
+CALL print
+POP EBX
+
+  ; interrupcao de saida
+  POP EBP
+  MOV EAX, 1
+  INT 0x80
+  

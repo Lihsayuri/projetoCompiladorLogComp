@@ -1,42 +1,79 @@
 import sys
 import re
+from tokenizer import *
+from tables import *
+from parser_ import *
 
-lista_palavras_reservadas = ["println", "readline", "if", "else", "while", "end", "Int", "String"]   # na PI vai pedir versão 2.1
-destination_file = ""
+destination_file = sys.argv[1].split(".jl")[0]
+funcTable = FuncTable()
+
 class PrePro:
     def filter(source):
         source = re.sub(r"#.*\n", "\n", source)  # remove comentários
         source = re.sub(r"#.*", "", source)  # remove linhas em branco
         return source
-
+    
 
 class Write:
-    def write_footer():
-        with open("footer.asm", "r") as input_file:
-            with open(f"{destination_file}.asm", "a") as output_file:
-                output_file.write(input_file.read())
-            
-    def write_header():
-        with open("header.asm", "r") as input_file:
-            with open(f"{destination_file}.asm", "w") as output_file:
-                output_file.write(input_file.read())
+    def write_final_output():
+        with open(destination_file + ".asm", "w") as wfile:
+            with open("header.asm", "r") as rfile:
+                wfile.write(rfile.read())
+                wfile.write("\n")
+            with open("functions.asm", "r") as rfile:
+                wfile.write(rfile.read())
+                wfile.write("\n")
+            with open("start.asm", "r") as rfile:
+                wfile.write(rfile.read())
+                wfile.write("\n")
+            with open("main_temp.asm", "r") as rfile:
+                wfile.write(rfile.read())
+                wfile.write("\n")
+            with open("footer.asm", "r") as rfile:
+                wfile.write(rfile.read())
+
 
     def write_code(code):
-        with open(f'{destination_file}.asm', "a") as file:
+        with open("main_temp.asm", "a") as file:
             file.write(code)
-    
+
+    def write_func(func_name):
+        with open("functions.asm", "a") as file:
+            with open("main_temp.asm", "r") as rfile:
+                file.write(func_name + ":\n")
+                file.write(rfile.read())
+
+    def delete_main_temp_functions():
+        with open("main_temp.asm", "w") as file:
+            file.write("")
+        with open("functions.asm", "w") as file:
+            file.write("")
+
+    def stash_data():
+        with open(f"main_temp.asm", "r") as rfile:
+            data = rfile.read()
+        with open(f"main_temp-stash.asm", "w") as wfile:
+            wfile.write(data)
+
+    def clear_data():
+        with open(f"main_temp.asm", "w") as wfile:
+            wfile.write("")
+
+    def retrive_data():
+        with open(f"main_temp-stash.asm", "r") as rfile:
+            data = rfile.read()
+        with open(f"main_temp.asm", "w") as wfile:
+            wfile.write(data)
+
 class Node:
     i = 0
-
     def __init__(self, value, children):
         self.value = value
         self.children = children
-
     def newId():
         Node.i += 1
         return Node.i
-    
-    def evaluate(self):
+    def evaluate(self, funcTable, symbolTable):
         pass
 
 class UnOp(Node):
@@ -44,27 +81,29 @@ class UnOp(Node):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
-        if self.value == "MINUS":
-            if self.children[0].evaluate()[0] == "Int":
-                return ("Int", -self.children[0].evaluate()[1])
-        elif self.value == "NOT":
-            if self.children[0].evaluate()[0] == "Int":
-                return ("Int", not self.children[0].evaluate()[1]) #pega o filho da esquerda, faz o evaluate e pega o valor
-        elif self.value == "PLUS":
-            if self.children[0].evaluate()[0] == "Int":
-                return ("Int", self.children[0].evaluate()[1])
 
+    def evaluate(self, symbolTable):
+        if self.children[0].evaluate(symbolTable)[0] == "Int":
+            if self.value == "MINUS":
+                return ("Int", -self.children[0].evaluate(symbolTable)[1])
+            elif self.value == "NOT":
+                return ("Int", not self.children[0].evaluate(symbolTable)[1]) #pega o filho da esquerda, faz o evaluate e pega o valor
+            elif self.value == "PLUS":
+                return ("Int", self.children[0].evaluate(symbolTable)[1])
+        else:
+            sys.stderr.write("Erro de tipos: operação unária entre tipos incompatíveis")
+            sys.exit(1)
 
 class BinOp(Node):
     def __init__(self, value, children):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
-        filho_esquerda = self.children[0].evaluate()
+
+    def evaluate(self, symbolTable):
+        filho_esquerda = self.children[0].evaluate(symbolTable)
         Write.write_code("PUSH EBX\n")
-        filho_direita = self.children[1].evaluate()
+        filho_direita = self.children[1].evaluate(symbolTable)
         if self.value == "CONCAT":
             return ("String", str(filho_esquerda[1]) + str(filho_direita[1]))
         if self.value == "PLUS":
@@ -151,15 +190,13 @@ class BinOp(Node):
                 return ("Int", valor1 and valor2)
             else:
                 sys.stderr.write("Erro de tipos: operação de e entre tipos incompatíveis")
-
-
-
+        
 class IntVal(Node):
     def __init__(self, value, children):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         Write.write_code("MOV EBX, " + str(self.value)+"\n")
         return ("Int", int(self.value))
     
@@ -168,7 +205,7 @@ class StringVal(Node):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         return ("String", self.value)
     
 class NoOp(Node):
@@ -176,7 +213,7 @@ class NoOp(Node):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         pass 
 
 class Assign(Node):
@@ -184,39 +221,39 @@ class Assign(Node):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
-        filho_da_direita = self.children[1].evaluate()
-        index = list(SymbolTable.table.keys()).index(self.children[0].value)
-        Write.write_code("MOV [EBP - " + str(index*4 + 4) + "], EBX\n")
-        SymbolTable.setter(self.children[0].value, filho_da_direita)
+    def evaluate(self, symbolTable):
+        filho_da_direita = self.children[1].evaluate(symbolTable)
+        symbolTable.setter(self.children[0].value, filho_da_direita)
+        index = symbolTable.getter(self.children[0].value)[2]
+        Write.write_code("MOV [EBP " + str(index) + "], EBX\n")
 
 class VarDec(Node):
     def __init__(self, value, children):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         if len(self.children) == 1:
             if self.value == "Int":
                 Write.write_code("PUSH DWORD 0\n")
-                SymbolTable.create(self.value, self.children[0].value, 0)
+                symbolTable.create(self.value, self.children[0].value, 0)
             elif self.value == "String":
-                SymbolTable.create(self.value, self.children[0].value, "")
+                symbolTable.create(self.value, self.children[0].value, "")
         else:
             if self.value == "Int":
                 Write.write_code("PUSH DWORD 0\n")
-                # Write.write_code("MOV [EBP - " + str(SymbolTable.offset) + "]," + str(self.value) + "\n")
-                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
+                symbolTable.create(self.value, self.children[0].value, self.children[1].evaluate(symbolTable)[1])
             elif self.value == "String":
-                SymbolTable.create(self.value, self.children[0].value, self.children[1].evaluate()[1])
+                symbolTable.create(self.value, self.children[0].value, self.children[1].evaluate(symbolTable)[1])
+
 
 class Print(Node):
     def __init__(self, value, children):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
-        filho_esquerda = self.children[0].evaluate()
+    def evaluate(self, symbolTable):
+        filho_esquerda = self.children[0].evaluate(symbolTable)
         Write.write_code("PUSH EBX\n")
         Write.write_code("CALL print\n")
         Write.write_code("POP EBX\n")
@@ -227,34 +264,36 @@ class Identifier(Node):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
-        index = list(SymbolTable.table.keys()).index(self.value)
-        Write.write_code("MOV EBX, [EBP - " + str(index*4 + 4) + "]" + "\n")
-        return SymbolTable.getter(self.value)
-    
+    def evaluate(self, symbolTable):
+        valor_i = symbolTable.getter(self.value)
+        print("valor_i: ", valor_i)
+        Write.write_code("MOV EBX, [EBP" + valor_i[2] + "]" + "\n")
+        return valor_i
     
 class Block(Node):
     def __init__(self, value, children):
         Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         for child in self.children:
-            child.evaluate()
+            block_return = child.evaluate(symbolTable)
+            if block_return is not None:
+                return block_return
 
 class While(Node):
     def __init__(self, value, children):
         self.id = Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         Write.write_code("LOOP_" + str(self.id) + ":\n")
-        filho_esquerdo = self.children[0].evaluate()[1]
+        filho_esquerdo = self.children[0].evaluate(symbolTable)[1]
         Write.write_code("CMP EBX, False" + "\n")
         Write.write_code("JE EXIT_LOOP_" + str(self.id) + "\n")
-        # while filho_esquerdo:
-        #     self.children[1].evaluate()
-        filho_direito = self.children[1].evaluate()
+        # while self.children[0].evaluate(symbolTable)[1]:
+        #     self.children[1].evaluate(symbolTable)
+        filho_direito = self.children[1].evaluate(symbolTable)
         Write.write_code("JMP LOOP_" + str(self.id) + "\n")
         Write.write_code("EXIT_LOOP_" + str(self.id) + ":\n")
 
@@ -263,431 +302,114 @@ class If(Node):
         self.id = Node.newId()
         self.value = value
         self.children = children
-    def evaluate(self):
+    def evaluate(self, symbolTable):
         Write.write_code("IF_" + str(self.id) + ":\n")
-        filho_esquerdo = self.children[0].evaluate()
+        filho_esquerdo = self.children[0].evaluate(symbolTable)
         Write.write_code("CMP EBX, False" + "\n")
         Write.write_code("JE ELSE_" + str(self.id) + "\n")
-        self.children[1].evaluate()
+        self.children[1].evaluate(symbolTable)
         # if filho_esquerdo[1]:
         Write.write_code("JMP END_IF_" + str(self.id) + "\n")
+            # self.children[1].evaluate(symbolTable)
         # else:
         Write.write_code("ELSE_" + str(self.id) + ":\n")
+
         if len(self.children) == 3:
-            self.children[2].evaluate()
+            self.children[2].evaluate(symbolTable)
         Write.write_code("END_IF_" + str(self.id) + ":\n")
 
 class Readln(Node):
-    Node.newId()
-    def evaluate(self):
+    def __init__(self, value, children):
+        Node.newId()
+        self.value = value
+        self.children = children
+    def evaluate(self, symbolTable):
         return ("Int", int(input()))  
 
-class SymbolTable:
-    table = {}
-    offset = 4
 
-    def create(type, variable, value):
-        if variable not in SymbolTable.table:
-            SymbolTable.table[variable] = (type, value)
-            SymbolTable.offset += 4
-        else:
-            sys.stderr.write("Erro: variável já declarada")
-
-    def getter(variable):
-        if variable in SymbolTable.table:
-            return SymbolTable.table[variable]
-        else:
-            raise ValueError("Variable not found in SymbolTable")
-        # pegue o indice do dicionario em que a variavel esta
-
-    
-    def setter( variable, value):
-        if SymbolTable.table[variable][0] == value[0]:
-            SymbolTable.table[variable] =  value
-        else:
-            sys.stderr.write("Erro de tipos: atribuição de valor incompatível com o tipo da variável")
-
-#read sempre vai retornar int. Não tem filhos e lê input e retorna um int. cast
-class Token:
-    def __init__(self, type, value):
-        self.type = type
+class FuncDec(Node):
+    def __init__(self, value, children):
+        Node.newId()
         self.value = value
+        self.children = children
 
-class Tokenizer:
-    def __init__(self, source, position):
-        self.source = source
-        self.position = position
-        self.next = Token(None, None)
+    def evaluate(self, symbolTable):
+        funcTable.create(self.children[0].value, self)
+        print("funcTable: ", funcTable.table)
+        symbolTableTemp = SymbolTable()
+        Write.stash_data()
+        for filho in self.children[1]:
+            print("filho: ", filho.children[0].value)
+            filho.evaluate(symbolTableTemp)
+        Write.clear_data()
+        symbolTableTemp.funcArgsTransform()
 
-    def selectNext(self):
-        numero = ""
-        while(len(self.source)!=self.position):
-            if self.source[self.position].isnumeric():
-                numero += self.source[self.position]
-                self.position += 1
-                while(len(self.source)!=self.position):
-                    if self.source[self.position].isnumeric():
-                        numero += self.source[self.position]
-                        self.position += 1
-                    else:
-                        self.next = Token("INT", numero)
-                        return
-                self.next = Token("INT", numero)
-                return
-            elif self.source[self.position] == '+' :
-                self.next = Token("PLUS", 0)
-                self.position += 1
-                return 
-            elif self.source[self.position] == '-' :
-                self.next = Token("MINUS", 0)
-                self.position += 1
-                return 
-            elif self.source[self.position] == '*':
-                self.next = Token("MULT", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '/':
-                self.next = Token("DIV", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '(':
-                self.next = Token("OPENPAR", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == ')':
-                self.next = Token("CLOSEPAR", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '\n':
-                self.position += 1
-                self.next = Token("NEWLINE", 0)
-                return
-            elif self.source[self.position] == '\"':
-                if self.source[self.position+1] == '\"':
-                    self.next = Token("STRING", "")
-                    self.position += 2
-                    return
-                else:
-                    self.position += 1
-                    string = ""
-                    while(self.source[self.position] != '\"'):
-                        string += self.source[self.position]
-                        self.position += 1
-                    self.next = Token("STRING", string)
-                    self.position += 1
-                    return
-            elif self.source[self.position] == '=':
-                if self.source[self.position+1] == '=':
-                    self.next = Token("EQUAL_EQUAL", 0)
-                    self.position += 2
-                    return
-                self.next = Token("EQUAL", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '!':
-                self.next = Token("NOT", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '>':
-                self.next = Token("GREATER", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '<':
-                self.next = Token("LESS", 0)
-                self.position += 1
-                return
-            elif self.source[self.position] == '&':
-                if self.source[self.position+1] == '&':
-                    self.next = Token("AND", 0)
-                    self.position += 2
-                    return
-                else:
-                    sys.stderr.write("Erro lexico: & sem &")
-            elif self.source[self.position] == '|':
-                if self.source[self.position+1] == '|':
-                    self.next = Token("OR", 0)
-                    self.position += 2
-                    return
-                else:
-                    sys.stderr.write("Erro lexico: | sem |")
-            elif self.source[self.position] == ':':
-                if self.source[self.position+1] == ':':
-                    self.next = Token("DOUBLECOLON", 0)
-                    self.position += 2
-                    return
-                else:
-                    sys.stderr.write("Erro lexico: : sem :")
-            elif self.source[self.position] == '.':
-                self.next = Token("CONCAT", 0)
-                self.position += 1
-                return
-            elif self.source[self.position].isalpha():
-                palavra = ""
-                palavra += self.source[self.position]
-                self.position += 1
-                while(len(self.source)!=self.position):
-                    if self.source[self.position].isalpha() or self.source[self.position].isnumeric() or self.source[self.position] == "_":
-                        palavra += self.source[self.position]
-                        self.position += 1
-                    else:
-                        if palavra in lista_palavras_reservadas:
-                            if palavra == "Int":
-                                self.next = Token("TYPE", "Int")
-                            elif palavra == "String":
-                                self.next = Token("TYPE", "String")
-                            else:
-                                self.next = Token(palavra.upper(), 0)
-                            return
-                        else:
-                            self.next = Token("IDENTIFIER", palavra)
-                            return
-                if palavra in lista_palavras_reservadas:
-                    self.next = Token(palavra.upper(), 0)
-                    return
-                else:
-                    self.next = Token("IDENTIFIER", palavra)
-                    return   
-            elif self.source[self.position] == " " :
-                self.position += 1
-            else:
-                sys.stderr.write("Você digitou um caracter inválido")
-                sys.exit(1)
+        print("Olha o st create: ", symbolTableTemp.table)
+
+        Write.write_code("PUSH EBP\n")
+        Write.write_code("MOV EBP, ESP\n")
+        self.children[2].evaluate(symbolTableTemp)
+        Write.write_func(self.children[0].value)
+        Write.retrive_data()
+        # self.children[-1].evaluate(symbolTableTemp)
+
+class FuncCall(Node):
+    def __init__(self, value, children):
+        Node.newId()
+        self.value = value
+        self.children = children
+
+    def evaluate(self, symbolTable):
+        nome_da_funcao = self.value
+        print("nome_da_funcao: ", nome_da_funcao)
+        print("funcTable: ", funcTable.table)
+        node_funcao = funcTable.getter(nome_da_funcao)
+        # new_symbol_table = SymbolTable()
+        iden, *args, block = node_funcao.children
+
+        filhos_call = self.children
+        if len(*args) != len(filhos_call):
+            sys.stderr.write(f"Erro de sintaxe: número de argumentos não corresponde ao número de parâmetros da função '{self.value}'")
+
+
+        for filho in filhos_call:
+            filho.evaluate(symbolTable)
+            Write.write_code("PUSH EBX\n")
+
+        Write.write_code("CALL " + self.value + "\n")
         
-        self.next = Token("EOF", 0)
-        return
+        for i in range(len(filhos_call)):
+            Write.write_code("POP EDX\n")
 
+        # for var_dec, filho_call in zip(*args, filhos_call):
+        #     var_dec.evaluate(new_symbol_table)
+        #     new_symbol_table.setter(var_dec.children[0].value, filho_call.evaluate(funcTable))
 
-class Parser:
-    tokenizer = None
+        # if type != iden.evaluate(funcTable)[0]:
+        #     sys.stderr.write(f"Erro de tipos: tipo de retorno da função '{self.value}' não corresponde ao tipo declarado")
 
-    def parseRelExp(tokenizer):
-        node = Parser.parseExpression(tokenizer)
-        while tokenizer.next.type == "GREATER" or tokenizer.next.type == "LESS" or tokenizer.next.type == "EQUAL_EQUAL" or tokenizer.next.type == "CONCAT":
-            if tokenizer.next.type == "EQUAL_EQUAL":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
-            if tokenizer.next.type == "GREATER":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
-            if tokenizer.next.type == "LESS":    
-                node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
-            if tokenizer.next.type == "CONCAT":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseExpression(tokenizer)])
- 
-        if tokenizer.next.type == "INT":
-            sys.stderr.write(f"Erro de sintaxe: INT não esperado.Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-            sys.exit(1)
-        else:
-            return node
-
-
-    def parseExpression(tokenizer):
-        node = Parser.parseTerm(tokenizer)
-        while tokenizer.next.type == "PLUS" or tokenizer.next.type == "MINUS" or tokenizer.next.type == "OR":
-            if tokenizer.next.type == "PLUS":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseTerm(tokenizer)])
-            if tokenizer.next.type == "MINUS":    
-                node = BinOp(tokenizer.next.type, [node, Parser.parseTerm(tokenizer)])
-            if tokenizer.next.type == "OR":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseTerm(tokenizer)])
- 
-        if tokenizer.next.type == "INT":
-            sys.stderr.write(f"Erro de sintaxe: INT não esperado.Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-            sys.exit(1)
-        else:
-            return node
-
-    def parseTerm(tokenizer):
-        node = Parser.parseFactor(tokenizer)
-        tokenizer.selectNext()
-        while tokenizer.next.type == "MULT" or tokenizer.next.type == "DIV"  or tokenizer.next.type == "AND":
-            if tokenizer.next.type == "MULT":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
-            if tokenizer.next.type == "DIV":    
-                node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
-            if tokenizer.next.type == "AND":
-                node = BinOp(tokenizer.next.type, [node, Parser.parseFactor(tokenizer)])
-            tokenizer.selectNext()
-        if tokenizer.next.type == "INT":
-            sys.stderr.write(f"Erro de sintaxe: INT não esperado.Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-            sys.exit(1)
-        else:
-            return node
-
- 
-    def parseFactor(tokenizer):
-        tokenizer.selectNext()
-        if tokenizer.next.type == "INT":
-            node = IntVal(tokenizer.next.value, [])
-            return node
-        elif tokenizer.next.type == "IDENTIFIER":
-            node = Identifier(tokenizer.next.value, [])   ## ele faz o getter
-            return node
-        elif tokenizer.next.type == "MINUS":
-            node = UnOp(tokenizer.next.type, [Parser.parseFactor(tokenizer)])
-            return node
-        elif tokenizer.next.type == "PLUS":
-            node = UnOp(tokenizer.next.type, [Parser.parseFactor(tokenizer)])
-            return node
-        elif tokenizer.next.type == "NOT":
-            node = UnOp(tokenizer.next.type, [Parser.parseFactor(tokenizer)])
-            return node
-        elif tokenizer.next.type == "STRING":
-            node = StringVal(tokenizer.next.value, [])
-            return node
-        elif tokenizer.next.type == "OPENPAR":
-            node = Parser.parseRelExp(tokenizer)
-            if tokenizer.next.type == "CLOSEPAR":
-                return node
-            else:
-                sys.stderr.write(f"Erro de sintaxe: falta fechar parênteses no Factor. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-        elif tokenizer.next.type == "READLINE":
-            tokenizer.selectNext()
-            if tokenizer.next.type == "OPENPAR":
-                tokenizer.selectNext()
-                if tokenizer.next.type == "CLOSEPAR":
-                    node = Readln(None, [])
-                    return node
-                else:
-                    sys.stderr.write(f"Erro de sintaxe: falta fechar parênteses no Factor. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-        else:
-            sys.stderr.write(f"Erro de sintaxe: aqui só entra número, - ou +. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-            sys.exit(1)
-
-    def parseBlock(tokenizer):
-        node_Block = Block("", [])
-        tokenizer.selectNext()
-        while tokenizer.next.type != "EOF":
-            node_Block.children.append(Parser.parseStatement(tokenizer))
-            tokenizer.selectNext()
-        return node_Block
-    
-    def parseBlockIFWhile(tokenizer):
-        node_Block = Block("", [])
-        tokenizer.selectNext()
-        while tokenizer.next.type != "END" and tokenizer.next.type != "ELSE"  and tokenizer.next.type != "EOF":
-            node_Block.children.append(Parser.parseStatement(tokenizer))
-            tokenizer.selectNext()
-        return node_Block
-
-    def parseStatement(tokenizer):
-        if Parser.tokenizer.next.type == "IDENTIFIER":
-            node_identifier = Identifier(Parser.tokenizer.next.value, [])  # vai criar um nó com o valor sendo a variável. Ex: x1 e não tem nenhum filho
-            Parser.tokenizer.selectNext()
-            ## aqui faz o setter do identifier
-            if Parser.tokenizer.next.type == "EQUAL":
-                node_expression = Parser.parseRelExp(Parser.tokenizer)
-                if Parser.tokenizer.next.type != "NEWLINE":
-                    sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
-                return Assign(None, [node_identifier, node_expression])
-            elif Parser.tokenizer.next.type == "DOUBLECOLON":
-                Parser.tokenizer.selectNext()
-                if Parser.tokenizer.next.type == "TYPE":
-                    tipo_da_var = Parser.tokenizer.next.value
-                    Parser.tokenizer.selectNext()
-                    if Parser.tokenizer.next.type == "EQUAL":
-                        node_expression = Parser.parseRelExp(Parser.tokenizer)
-                        if Parser.tokenizer.next.type != "NEWLINE":
-                            sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
-                        return VarDec(tipo_da_var, [node_identifier, node_expression])
-                    elif Parser.tokenizer.next.type == "NEWLINE":
-                        return VarDec(tipo_da_var, [node_identifier])
-                    sys.stderr.write("Erro de sintaxe: não terminou a linha no identifier.  Caracter atual: {tokenizer.next.value}")
-                else:
-                    sys.stderr.write("Erro de sintaxe: falta o tipo no VARDEC. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
+        # (type, value) = block.evaluate(new_symbol_table)
         
-        elif Parser.tokenizer.next.type == "PRINTLN":
-            Parser.tokenizer.selectNext()
-            if Parser.tokenizer.next.type == "OPENPAR":
-                node_print = Parser.parseRelExp(Parser.tokenizer)
-                if Parser.tokenizer.next.type == "CLOSEPAR":
-                    Parser.tokenizer.selectNext()
-                    if Parser.tokenizer.next.type != "NEWLINE":
-                        sys.stderr.write("Erro de sintaxe: não terminou a linha no print. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                        sys.exit(1)
-                    return Print("", [node_print])
+        # return (type, value)
+        return ("Int", 1)
 
-                else:
-                    sys.stderr.write("Erro de sintaxe: falta fechar parênteses no println. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-            else:
-                sys.stderr.write("Erro de sintaxe: falta abrir parênteses pro print. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-
-        elif Parser.tokenizer.next.type == "WHILE":
-            node_rel_exp = Parser.parseRelExp(Parser.tokenizer)
-            if Parser.tokenizer.next.type != "NEWLINE":
-                sys.stderr.write("Erro de sintaxe: não terminou a linha no while. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-            node_block = Parser.parseBlockIFWhile(Parser.tokenizer)
-            if Parser.tokenizer.next.type != "END":
-                sys.stderr.write("Erro de sintaxe: falta end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-            Parser.tokenizer.selectNext()
-            if Parser.tokenizer.next.type != "NEWLINE":
-                sys.stderr.write("Erro de sintaxe: não terminou a linha no end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-            return While("", [node_rel_exp, node_block])
-        
-        elif Parser.tokenizer.next.type == "IF":
-            node_rel_exp = Parser.parseRelExp(Parser.tokenizer)
-            if Parser.tokenizer.next.type != "NEWLINE":
-                sys.stderr.write("Erro de sintaxe: não terminou a linha no if. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-            node_block = Parser.parseBlockIFWhile(Parser.tokenizer)
-
-            if Parser.tokenizer.next.type == "END":
-                Parser.tokenizer.selectNext()
-                if Parser.tokenizer.next.type != "NEWLINE":
-                    sys.stderr.write("Erro de sintaxe: não terminou a linha no end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-                return If("", [node_rel_exp, node_block])
-            elif Parser.tokenizer.next.type == "ELSE":
-                Parser.tokenizer.selectNext()
-                if Parser.tokenizer.next.type != "NEWLINE":
-                    sys.stderr.write("Erro de sintaxe: não terminou a linha no else. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-                node_block_else = Parser.parseBlockIFWhile(Parser.tokenizer)
-                if Parser.tokenizer.next.type != "END":
-                    sys.stderr.write("Erro de sintaxe: falta end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-                Parser.tokenizer.selectNext()
-                if Parser.tokenizer.next.type != "NEWLINE":
-                    sys.stderr.write("Erro de sintaxe: não terminou a linha no end. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                    sys.exit(1)
-                return If("", [node_rel_exp, node_block, node_block_else])
-            else:
-                sys.stderr.write("Erro de sintaxe: falta end ou else. Tipo atual: {tokenizer.next.type}. Caracter atual: {tokenizer.next.value}")
-                sys.exit(1)
-
-
-        elif Parser.tokenizer.next.type == "NEWLINE":
-            return NoOp("", [])
-        
-
-
-    def run(code):
-        code = PrePro.filter(code)
-        Parser.tokenizer = Tokenizer(code, 0)
-        Write.write_header()
-        root = Parser.parseBlock(Parser.tokenizer)
-
-        if Parser.tokenizer.position == len(Parser.tokenizer.source) and Parser.tokenizer.next.type == "EOF":
-            resultado =  root.evaluate()
-            Write.write_footer()
-            return resultado
-        else:
-            sys.stderr.write("Erro de sintaxe: não consumiu tudo no diagrama sintático")
-            sys.exit(1)
+class Return(Node):
+    def __init__(self, value, children):
+        Node.newId()
+        self.value = value
+        self.children = children
+    def evaluate(self, symbolTable):
+        resultado = self.children[0].evaluate(symbolTable)
+        Write.write_code("MOV ESP, EBP\n")
+        Write.write_code("POP EBP\n")
+        Write.write_code("RET\n")
+        return ("return", resultado)
 
 
 if __name__ == "__main__":
     # argv1 vai ser nome do arquivo e nao travar a extensão .
     with open(sys.argv[1], "r") as file: 
-        destination_file = sys.argv[1].split(".jl")[0]
         code = file.read()
     
     Parser.run(code)
-
 

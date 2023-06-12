@@ -75,71 +75,55 @@ binop_true:
 binop_exit:
   RET
 
-_start:
-
-  PUSH EBP ; guarda o base pointer
-  MOV EBP, ESP ; estabelece um novo base pointer
-
-  ; codigo gerado pelo compilador
-  PUSH DWORD 0
-PUSH DWORD 0
-PUSH DWORD 0
-MOV EBX, 5
-MOV [EBP - 8], EBX
-MOV EBX, 2
-MOV [EBP - 4], EBX
-MOV EBX, 1
-MOV [EBP - 12], EBX
-LOOP_41:
-MOV EBX, [EBP - 4]
+countdown:
+PUSH EBP
+MOV EBP, ESP
+IF_20:
+MOV EBX, [EBP+8]
 PUSH EBX
-MOV EBX, [EBP - 8]
-PUSH EBX
-MOV EBX, 1
-POP EAX
-ADD EAX, EBX
-MOV EBX, EAX
-POP EAX
-CMP EAX, EBX
-call binop_jl
-CMP EBX, False
-JE EXIT_LOOP_41
-IF_30:
-MOV EBX, [EBP - 4]
-PUSH EBX
-MOV EBX, 4
+MOV EBX, 0
 POP EAX
 CMP EAX, EBX
 call binop_je
 CMP EBX, False
-JE ELSE_30
+JE ELSE_20
+MOV EBX, 42
 PUSH EBX
 CALL print
 POP EBX
-JMP END_IF_30
-ELSE_30:
-END_IF_30:
-MOV EBX, [EBP - 12]
+JMP END_IF_20
+ELSE_20:
+MOV EBX, [EBP+8]
 PUSH EBX
-MOV EBX, [EBP - 4]
-POP EAX
-IMUL EAX, EBX
-MOV EBX, EAX
-MOV [EBP - 12], EBX
-MOV EBX, [EBP - 4]
+CALL print
+POP EBX
+MOV EBX, [EBP+8]
 PUSH EBX
 MOV EBX, 1
 POP EAX
-ADD EAX, EBX
+SUB EAX, EBX
 MOV EBX, EAX
-MOV [EBP - 4], EBX
-JMP LOOP_41
-EXIT_LOOP_41:
-MOV EBX, [EBP - 12]
 PUSH EBX
-CALL print
-POP EBX
+CALL countdown
+POP EDX
+END_IF_20:
+MOV EBX, 0
+MOV ESP, EBP
+POP EBP
+RET
+
+_start:
+
+  PUSH EBP ; guarda o base pointer
+  MOV EBP, ESP ; estabelece um novo base pointer
+  
+MOV EBX, 5
+PUSH EBX
+CALL countdown
+POP EDX
+
   ; interrupcao de saida
   POP EBP
   MOV EAX, 1
   INT 0x80
+  

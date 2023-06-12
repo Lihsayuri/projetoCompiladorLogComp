@@ -74,3 +74,75 @@ binop_true:
   MOV EBX, True
 binop_exit:
   RET
+
+fatorial:
+PUSH EBP
+MOV EBP, ESP
+IF_25:
+MOV EBX, [EBP+8]
+PUSH EBX
+MOV EBX, 0
+POP EAX
+CMP EAX, EBX
+call binop_je
+PUSH EBX
+MOV EBX, [EBP+8]
+PUSH EBX
+MOV EBX, 1
+POP EAX
+CMP EAX, EBX
+call binop_je
+POP EAX
+OR EAX, EBX
+MOV EBX, EAX
+CMP EBX, False
+JE ELSE_25
+MOV EBX, 1
+MOV ESP, EBP
+POP EBP
+RET
+JMP END_IF_25
+ELSE_25:
+MOV EBX, [EBP+8]
+PUSH EBX
+MOV EBX, [EBP+8]
+PUSH EBX
+MOV EBX, 1
+POP EAX
+SUB EAX, EBX
+MOV EBX, EAX
+PUSH EBX
+CALL fatorial
+POP EDX
+POP EAX
+IMUL EAX, EBX
+MOV EBX, EAX
+MOV ESP, EBP
+POP EBP
+RET
+END_IF_25:
+
+_start:
+
+  PUSH EBP ; guarda o base pointer
+  MOV EBP, ESP ; estabelece um novo base pointer
+  
+PUSH DWORD 0
+PUSH DWORD 0
+MOV EBX, 6
+MOV [EBP -8], EBX
+MOV EBX, [EBP-8]
+PUSH EBX
+CALL fatorial
+POP EDX
+MOV [EBP -4], EBX
+MOV EBX, [EBP-4]
+PUSH EBX
+CALL print
+POP EBX
+
+  ; interrupcao de saida
+  POP EBP
+  MOV EAX, 1
+  INT 0x80
+  

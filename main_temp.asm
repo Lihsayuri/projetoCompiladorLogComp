@@ -1,0 +1,4 @@
+MOV EBX, 5
+PUSH EBX
+CALL countdown
+POP EDX
